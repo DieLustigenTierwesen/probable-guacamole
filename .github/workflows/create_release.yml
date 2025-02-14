@@ -1,0 +1,51 @@
+name: Create Release
+
+on:
+  push:
+    paths:
+      - "releases/*.apk"
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout repository
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Get latest APK file
+    - name: Find Latest APK
+      id: find_apk
+      run: |
+        LATEST_APK=$(ls -t releases/*.apk | head -n 1)
+        APK_NAME=$(basename "$LATEST_APK")
+        VERSION=$(echo "$APK_NAME" | grep -oP '\d+\.\d+\.\d+\.\d+')
+        echo "LATEST_APK=$LATEST_APK" >> $GITHUB_ENV
+        echo "APK_NAME=$APK_NAME" >> $GITHUB_ENV
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    # Create GitHub Release
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ env.VERSION }}
+        release_name: Release v${{ env.VERSION }}
+        body: |
+          This release contains the latest APK version: **v${{ env.VERSION }}**
+        draft: false
+        prerelease: false
+
+    # Upload APK to GitHub Release
+    - name: Upload APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.LATEST_APK }}
+        asset_name: ${{ env.APK_NAME }}
+        asset_content_type: application/vnd.android.package-archive
